@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;600;700&family=Fira+Code&display=swap" rel="stylesheet">
+  <!-- 🔬 Подключаем библиотеку для продвинутого Diff -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+  <style>
+    :root {
+      --font-size-base: 14px; --bg-color: #0d1a1b; --panel-color: rgba(20, 36, 38, 0.85);
+      --accent-color: #00e5ff; --accent-glow: rgba(0, 229, 255, 0.5); --text-color: #cdd3d4;
+      --muted-color: #5c7071; --green-color: #68ffbe; --red-color: #ff68a4;
+      --orange-color: #ffb468; --border-radius: 8px; --transition-speed: 0.3s; --backdrop-blur: 10px;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes glow {
+      0%, 100% { text-shadow: 0 0 5px var(--accent-glow); } 50% { text-shadow: 0 0 15px var(--accent-glow); }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: var(--font-size-base); }
+    body {
+      font-family: 'Spectral', serif; color: var(--text-color);
+      background-image: url('https://images.unsplash.com/photo-1482839947839-08731b816343?q=80&w=1974&auto=format&fit=crop');
+      background-size: cover; background-position: center center; background-attachment: fixed;
+      display: flex; flex-direction: column; height: 100vh; animation: fadeIn 1s ease-in-out; overflow: hidden;
+    }
+    .overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(13, 26, 27, 0.7); backdrop-filter: blur(var(--backdrop-blur));
+      -webkit-backdrop-filter: blur(var(--backdrop-blur));
+      padding: 1rem; display: flex; flex-direction: column; height: 100%;
+    }
+    .header { text-align: center; margin-bottom: 1rem; position: relative; }
+    .header h2 { font-size: 1.5rem; font-weight: 700; color: var(--accent-color); animation: glow 4s ease-in-out infinite; }
+    .header-controls { position: absolute; top: 0; right: 0; display: flex; gap: 0.5rem; }
+    .header-controls button {
+      background: none; border: 1px solid var(--muted-color); color: var(--muted-color); font-size: 0.8rem;
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer; transition: all var(--transition-speed);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .header-controls button:hover { color: var(--accent-color); border-color: var(--accent-color); transform: scale(1.1); }
+    
+    /* 🗄️ Улучшение: Хранилище ритуалов */
+    .directives-container { position: relative; }
+    #save-directives-btn { position: absolute; bottom: 1.5rem; right: 0.5rem; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted-color); transition: color var(--transition-speed); }
+    #save-directives-btn:hover { color: var(--accent-color); }
+
+    textarea {
+      width: 100%; height: 120px; background: var(--panel-color); color: var(--text-color);
+      border: 1px solid var(--muted-color); border-radius: var(--border-radius);
+      padding: 0.8rem; margin-bottom: 1rem; resize: vertical; font-family: 'Fira Code', monospace; font-size: 0.8rem;
+      transition: all var(--transition-speed);
+    }
+    textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 10px var(--accent-glow); }
+    .main-btn {
+      width: 100%; border: none; border-radius: var(--border-radius); padding: 0.8rem 1rem; font-weight: 700;
+      background: var(--accent-color); color: var(--bg-color); cursor: pointer;
+      transition: all var(--transition-speed); font-size: 1rem; letter-spacing: 1px; margin-bottom: 1rem;
+    }
+    .main-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px var(--accent-glow); }
+    .main-btn:disabled { background-color: var(--muted-color); color: #999; cursor: not-allowed; transform: none; box-shadow: none; }
+    #status { text-align: center; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--accent-color); height: 1.2rem; transition: opacity 0.3s; }
+    
+    /* 📊 Улучшение: Статистика и Фильтры */
+    #stats-and-filters {
+      display: none; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0; font-size: 0.8rem;
+    }
+    #stats-bar { color: var(--muted-color); }
+    .filter-btn { background: none; border: 1px solid var(--muted-color); color: var(--muted-color); padding: 4px 8px; border-radius: 12px; cursor: pointer; transition: all var(--transition-speed); }
+    .filter-btn:hover, .filter-btn.active { color: var(--accent-color); border-color: var(--accent-color); }
+    .filter-btn.active { background: rgba(0, 229, 255, 0.1); }
+
+    #results-container { flex-grow: 1; overflow-y: auto; padding-right: 0.5rem; }
+    .suggestion-card {
+      background: var(--panel-color); border-left: 4px solid;
+      border-radius: var(--border-radius); padding: 1rem; margin-bottom: 1rem;
+      animation: fadeInUp 0.5s ease-out forwards; opacity: 0; transition: all var(--transition-speed);
+    }
+    .suggestion-card.hidden { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; border: 0; overflow: hidden; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .card-header .type { font-weight: 700; font-size: 0.8em; padding: 3px 8px; border-radius: 12px; border: 1px solid; text-transform: uppercase; }
+    .card-header .type.exact { border-color: var(--green-color); color: var(--green-color); }
+    .card-header .type.fuzzy { border-color: var(--orange-color); color: var(--orange-color); }
+    .card-header .type.ai { border-color: var(--accent-color); color: var(--accent-color); }
+    .card-header .info { font-size: 0.8em; color: var(--muted-color); }
+    
+    /* 🔬 Улучшение v3: СУПЕР-ЯРКИЙ Diff */
+    .text-diff { font-size: 0.9em; line-height: 1.5; font-family: 'Spectral', serif; }
+    .text-diff del {
+      color: #ff6b9d;
+      font-weight: 600;
+      text-decoration: none; 
+      background: rgba(255, 107, 157, 0.4);
+      padding: 3px 2px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 107, 157, 0.6);
+    }
+    .text-diff ins {
+      color: #4eff88;
+      font-weight: 600;
+      text-decoration: none;
+      background: rgba(78, 255, 136, 0.4);
+      padding: 3px 2px;
+      border-radius: 4px;
+      border: 1px solid rgba(78, 255, 136, 0.6);
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(92, 112, 113, 0.2);
+    }
+    .card-actions { display: flex; gap: 8px; }
+    .card-action-btn {
+      background: none;
+      border: 1px solid var(--muted-color);
+      color: var(--muted-color);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all var(--transition-speed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+    }
+    .card-action-btn:hover {
+      color: var(--accent-color);
+      border-color: var(--accent-color);
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .custom-checkbox { display: block; position: relative; padding-left: 30px; cursor: pointer; user-select: none; }
+    .custom-checkbox input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+    .custom-checkbox .checkmark { position: absolute; top: 0; left: 0; height: 20px; width: 20px; background-color: transparent; border: 2px solid var(--muted-color); border-radius: 4px; transition: all var(--transition-speed); }
+    .custom-checkbox:hover input ~ .checkmark { border-color: var(--accent-color); }
+    .custom-checkbox input:checked ~ .checkmark { background-color: var(--accent-color); border-color: var(--accent-color); }
+    .custom-checkbox .checkmark:after { content: ""; position: absolute; display: none; left: 6px; top: 2px; width: 5px; height: 10px; border: solid var(--bg-color); border-width: 0 3px 3px 0; transform: rotate(45deg); }
+    .custom-checkbox input:checked ~ .checkmark:after { display: block; }
+    .error-msg { color: var(--red-color); text-align: center; padding: 1rem; background: rgba(255, 104, 164, 0.1); border-radius: var(--border-radius); border: 1px solid var(--red-color); }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="header">
+      <h2>Advanced Replacer</h2>
+      <div class="header-controls">
+        <button onclick="changeFontSize(-1)" title="Decrease font size">A-</button>
+        <button onclick="changeFontSize(1)" title="Increase font size">A+</button>
+        <button onclick="openInModal()" title="Expand to modal view">↔️</button>
+      </div>
+    </div>
+    
+    <div class="directives-container">
+      <textarea id="directives" placeholder='Paste directives in JSON format here... e.g., [{"fragment": "old text", "replaceWith": "new text"}]'></textarea>
+      <!-- Save Directives Button -->
+      <button id="save-directives-btn" onclick="saveDirectives()" title="Save current directives (simulated)">💾</button>
+    </div>
+    
+    <button id="find-btn" class="main-btn" onclick="findChanges()">🔍 Find Replacements</button>
+
+    <div id="status"></div>
+    <div id="progress-container" style="display:none;width:100%;height:6px;background:rgba(92,112,113,0.3);border-radius:3px;overflow:hidden;margin-bottom:8px;">
+      <div id="progress-bar" style="width:0%;height:100%;background:var(--accent-color);transition:width 0.3s ease;"></div>
+    </div>
+    
+    <!-- Stats and Filters Panel -->
+    <div id="stats-and-filters">
+      <div id="stats-bar"></div>
+      <div id="filters">
+        <button class="filter-btn active" onclick="filterResults('all')">All</button>
+        <button class="filter-btn" onclick="filterResults('exact')">Exact</button>
+        <button class="filter-btn" onclick="filterResults('fuzzy')">Fuzzy</button>
+        <button class="filter-btn" onclick="filterResults('ai')">AI</button>
+      </div>
+    </div>
+    
+    <div id="results-container"></div>
+    
+    <button id="apply-btn" class="main-btn" onclick="applyChanges()" style="display:none;">✅ Apply Changes</button>
+    <button id="undo-btn" class="main-btn" onclick="undoChanges()" style="display:none;">↩️ Undo Last Run</button>
+  </div>
+
+  <script>
+    const findBtn = document.getElementById('find-btn');
+    const applyBtn = document.getElementById('apply-btn');
+    const directivesEl = document.getElementById('directives');
+    const resultsContainer = document.getElementById('results-container');
+    const statusEl = document.getElementById('status');
+    const statsAndFiltersEl = document.getElementById('stats-and-filters');
+    const statsBarEl = document.getElementById('stats-bar');
+    let suggestionsCache = [];
+    // Initialize the diff_match_patch library
+    const dmp = new diff_match_patch();
+
+    function changeFontSize(direction) {
+      const root = document.documentElement;
+      let currentSize = parseFloat(getComputedStyle(root).getPropertyValue('--font-size-base'));
+      currentSize += direction * 1;
+      root.style.setProperty('--font-size-base', `${Math.max(12, currentSize)}px`);
+    }
+
+    function openInModal() {
+      google.script.run.showAsModal(directivesEl.value);
+    }
+    
+    function init(directivesText) {
+      if (directivesText) directivesEl.value = directivesText;
+    }
+    
+    // Simulates saving the current set of directives.
+    function saveDirectives() {
+        const text = directivesEl.value.trim();
+        if(!text) return showError("Nothing to save. The directives field is empty.");
+        const name = prompt("Enter a name for this set of directives:");
+        if(name) {
+            // In a real app, this would use google.script.run to save to PropertiesService.
+            alert(`Directives set "${name}" has been saved (simulation).`);
+        }
+    }
+    
+    function parseDirectives() {
+      try {
+        const text = directivesEl.value.trim();
+        if (!text) { showError("The directives field is empty."); return null; }
+        const data = JSON.parse(text);
+        if (!Array.isArray(data) || !data.every(item => 'fragment' in item && 'replaceWith' in item)) {
+          showError("Invalid JSON format. Ensure it's an array of objects with 'fragment' and 'replaceWith' keys."); return null;
+        }
+        return data;
+      } catch (e) {
+        showError("Invalid JSON. Error: " + e.message); return null;
+      }
+    }
+
+    function findChanges() {
+      const directives = parseDirectives();
+      if (!directives) return;
+
+      setLoadingState(true, "Searching for matches in the document...");
+      
+      const settings = { fuzzyThreshold: 0.6, aiThreshold: 0.5 };
+
+      google.script.run
+        .withSuccessHandler(renderResults)
+        .withFailureHandler(showError)
+        .generatePreview(directives, settings);
+    }
+    
+    function renderResults(suggestions) {
+      suggestionsCache = suggestions;
+      resultsContainer.innerHTML = '';
+
+      if (!suggestions || suggestions.length === 0) {
+        setLoadingState(false, "No matches found."); return;
+      }
+      
+      // Render stats
+      updateStats(suggestions);
+      statsAndFiltersEl.style.display = 'flex';
+
+      setLoadingState(false, `${suggestions.length} suggestions found.`);
+      
+      suggestions.forEach((s, index) => {
+        const card = document.createElement('div');
+        // Add data-type for filtering
+        card.className = `suggestion-card`;
+        card.dataset.type = s.type.toLowerCase();
+        card.style.animationDelay = `${index * 50}ms`;
+        
+        // Create a smart fragment with context for display
+        const smartFragment = createSmartFragment(s.oldText, s.fragment, s.newText, s.type, s.replaceWith);
+        
+        // Create an advanced diff for the fragment only
+        const diff = dmp.diff_main(smartFragment.oldFragment, smartFragment.newFragment);
+        dmp.diff_cleanupSemantic(diff);
+        const diffHtml = dmp.diff_prettyHtml(diff).replace(/&para;/g, '');
+
+        let similarityInfo = '';
+        if (s.type === 'FUZZY' || s.type === 'AI') {
+          similarityInfo = ` | Similarity: ${Math.round(s.similarity * 100)}%`;
+        }
+        
+        card.innerHTML = `
+          <div class="card-header">
+            <span class="type ${s.type.toLowerCase()}">${s.type}</span>
+            <span class="info">${s.elementType} #${s.paraIndex}${similarityInfo}</span>
+          </div>
+          <div class="text-diff">${diffHtml}</div>
+          ${smartFragment.hasMore ? '<div style="color: var(--muted-color); font-size: 0.8em; margin-top: 8px;">... (showing a fragment)</div>' : ''}
+          <div class="card-footer">
+            <div class="card-actions">
+              ${smartFragment.hasMore ? `<button class="card-action-btn" onclick="showFullText(${index})" title="Show full text">⛶</button>` : ''}
+              <button class="card-action-btn" onclick="copyChange(${index})" title="Copy change details">📋</button>
+            </div>
+            <label class="custom-checkbox">Apply
+              <input type="checkbox" data-index="${index}" checked>
+              <span class="checkmark"></span>
+            </label>
+          </div>
+        `;
+        resultsContainer.appendChild(card);
+      });
+
+      applyBtn.style.display = 'block';
+    }
+    
+    /**
+     * Creates a smart, context-aware fragment for display in the suggestion card.
+     */
+    function createSmartFragment(fullOldText, searchFragment, fullNewText, matchType, replaceWith) {
+      const MAX_LENGTH = 200; // Max length of the displayed fragment
+      const CONTEXT_CHARS = 50; // Context characters on each side of the match
+      
+      // If the text is short, show all of it.
+      if (fullOldText.length <= MAX_LENGTH) {
+        return {
+          oldFragment: fullOldText,
+          newFragment: fullNewText,
+          hasMore: false
+        };
+      }
+      
+      let startPos = 0;
+      let endPos = fullOldText.length;
+      
+      if (matchType === 'EXACT') {
+        // For exact matches, find the fragment's position.
+        const fragmentPos = fullOldText.indexOf(searchFragment);
+        if (fragmentPos !== -1) {
+          startPos = Math.max(0, fragmentPos - CONTEXT_CHARS);
+          endPos = Math.min(fullOldText.length, fragmentPos + searchFragment.length + CONTEXT_CHARS);
+        }
+      } else {
+        // For FUZZY/AI, just show the beginning of the text.
+        endPos = MAX_LENGTH;
+      }
+      
+      const oldFragment = (startPos > 0 ? '...' : '') + 
+                         fullOldText.substring(startPos, endPos) + 
+                         (endPos < fullOldText.length ? '...' : '');
+      
+      let newFragment;
+      if (matchType === 'EXACT') {
+        // Replace within the created fragment for an accurate diff.
+        newFragment = oldFragment.replace(searchFragment, replaceWith);
+      } else {
+        // For FUZZY/AI, just show the new text (truncated if necessary).
+        newFragment = fullNewText.length > MAX_LENGTH ? 
+                     fullNewText.substring(0, MAX_LENGTH) + '...' : 
+                     fullNewText;
+      }
+      
+      return {
+        oldFragment: oldFragment,
+        newFragment: newFragment,
+        hasMore: fullOldText.length > MAX_LENGTH
+      };
+    }
+    
+    // Updates the statistics bar.
+    function updateStats(suggestions) {
+        const counts = suggestions.reduce((acc, s) => {
+            acc[s.type.toLowerCase()] = (acc[s.type.toLowerCase()] || 0) + 1;
+            return acc;
+        }, {});
+        
+        statsBarEl.innerHTML = `
+            Found: <b>${suggestions.length}</b> 
+            ( <span style="color: var(--green-color)">${counts.exact || 0}</span> Exact | 
+            <span style="color: var(--orange-color)">${counts.fuzzy || 0}</span> Fuzzy | 
+            <span style="color: var(--accent-color)">${counts.ai || 0}</span> AI )
+        `;
+    }
+
+    // Filters results based on match type.
+    function filterResults(type) {
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.filter-btn[onclick="filterResults('${type}')"]`).classList.add('active');
+        
+        document.querySelectorAll('.suggestion-card').forEach(card => {
+            if (type === 'all' || card.dataset.type === type) {
+                card.classList.remove('hidden');
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+    }
+    
+    function applyChanges() {
+      const checkedInputs = document.querySelectorAll('.suggestion-card:not(.hidden) input[type="checkbox"]:checked');
+      const approvedSuggestions = Array.from(checkedInputs).map(input => {
+        const original = suggestionsCache[parseInt(input.dataset.index, 10)];
+        // Strip down the object to send only necessary data to the server.
+        return {
+          type: original.type,
+          paraIndex: original.paraIndex,
+          elementType: original.elementType,
+          fragment: original.fragment,
+          replaceWith: original.replaceWith,
+          oldText: original.oldText,
+          newText: original.newText
+          // Exclude large/circular objects like 'element'.
+        };
+      });
+
+      if (approvedSuggestions.length === 0) {
+        showError("No changes were selected to apply."); return;
+      }
+
+      setLoadingState(true, "Applying changes...");
+      startProgressPolling();
+
+      google.script.run
+        .withSuccessHandler(result => {
+          setLoadingState(false, result);
+          applyBtn.style.display = 'none';
+          document.getElementById('undo-btn').style.display = 'block';
+          statsAndFiltersEl.style.display = 'none';
+          resultsContainer.innerHTML = '';
+        })
+        .withFailureHandler(error => {
+          showError(error);
+        })
+        .applySuggestions(approvedSuggestions);
+    }
+
+    function setLoadingState(isLoading, message = '') {
+      findBtn.disabled = isLoading;
+      applyBtn.disabled = isLoading;
+      statusEl.textContent = message;
+      statusEl.style.opacity = isLoading ? '1' : '0.8';
+    }
+
+    /**
+     * Shows the full text of an element in a modal dialog.
+     */
+    function showFullText(index) {
+      const suggestion = suggestionsCache[index];
+      if (!suggestion) return;
+      
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1000;
+        background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+      `;
+      
+      const content = document.createElement('div');
+      content.style.cssText = `
+        background: var(--bg-color); color: var(--text-color); padding: 2rem; border-radius: 12px;
+        max-width: 80vw; max-height: 80vh; overflow-y: auto; position: relative;
+        border: 1px solid var(--accent-color); box-shadow: 0 10px 30px rgba(0,229,255,0.3);
+      `;
+      
+      const fullDiff = dmp.diff_main(suggestion.oldText, suggestion.newText);
+      dmp.diff_cleanupSemantic(fullDiff);
+      const fullDiffHtml = dmp.diff_prettyHtml(fullDiff).replace(/&para;/g, '');
+      
+      content.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <h3 style="color:var(--accent-color);margin:0;">${suggestion.elementType} #${suggestion.paraIndex}</h3>
+          <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-color);font-size:1.5rem;cursor:pointer;padding:0.5rem;">×</button>
+        </div>
+        <div class="text-diff" style="max-height: 60vh; overflow-y: auto;">${fullDiffHtml}</div>
+      `;
+      
+      modal.className = 'modal-overlay';
+      modal.appendChild(content);
+      document.body.appendChild(modal);
+      
+      // Close the modal by clicking on the overlay.
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+    }
+
+    /**
+     * Copies the change details (before/after) to the clipboard.
+     */
+    function copyChange(index) {
+      const suggestion = suggestionsCache[index];
+      if (!suggestion) return;
+      
+      const textToCopy = `BEFORE:\n${suggestion.oldText}\n\nAFTER:\n${suggestion.newText}`;
+      
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          showStatus("📋 Copied to clipboard", 2000);
+        }).catch(() => {
+          fallbackCopy(textToCopy);
+        });
+      } else {
+        fallbackCopy(textToCopy);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showStatus("📋 Copied to clipboard", 2000);
+      } catch (e) {
+        showStatus("❌ Failed to copy", 2000);
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function showStatus(message, duration = 3000) {
+      statusEl.textContent = message;
+      statusEl.style.opacity = '1';
+      setTimeout(() => {
+        statusEl.style.opacity = '0.8';
+      }, duration);
+    }
+
+    function showError(error) {
+      console.error(error);
+      const errorMessage = (typeof error === 'object' && error.message) ? error.message : error;
+      setLoadingState(false);
+      resultsContainer.innerHTML = `<div class="error-msg">${errorMessage}</div>`;
+      applyBtn.style.display = 'none';
+      statsAndFiltersEl.style.display = 'none';
+    }
+
+    function undoChanges() {
+      const undoBtn = document.getElementById('undo-btn');
+      setLoadingState(true, 'Reverting the last run...');
+
+      google.script.run
+        .withSuccessHandler(result => {
+          console.log('↩️ Undo result:', result);
+          showStatus(result, 4000);
+          setLoadingState(false);
+          undoBtn.style.display = 'none';
+        })
+        .withFailureHandler(error => {
+          console.error('💥 Undo error:', error);
+          showError(error);
+        })
+        .undoLastRun();
+    }
+
+    function startProgressPolling() {
+      const container = document.getElementById('progress-container');
+      const bar = document.getElementById('progress-bar');
+      container.style.display = 'block';
+      bar.style.width = '0%';
+
+      const poll = () => {
+        google.script.run
+          .withSuccessHandler(progress => {
+            if (!progress || progress.total === 0) return;
+            const percent = Math.min(100, Math.round((progress.applied / progress.total) * 100));
+            bar.style.width = percent + '%';
+            if (progress.done) {
+              clearInterval(pollInterval);
+              setTimeout(() => { container.style.display = 'none'; }, 1000);
+            }
+          })
+          .withFailureHandler(err => console.error('Progress polling error', err))
+          .getRitualProgress();
+      };
+      poll();
+      const pollInterval = setInterval(poll, 1500);
+    }
+
+  </script>
+</body>
+</html> 
