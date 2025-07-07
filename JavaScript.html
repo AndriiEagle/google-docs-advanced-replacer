@@ -1,0 +1,293 @@
+const findBtn = document.getElementById('find-btn');
+const applyBtn = document.getElementById('apply-btn');
+const directivesEl = document.getElementById('directives');
+const resultsContainer = document.getElementById('results-container');
+const statusEl = document.getElementById('status');
+const statsAndFiltersEl = document.getElementById('stats-and-filters');
+const statsBarEl = document.getElementById('stats-bar');
+let suggestionsCache = [];
+const dmp = new diff_match_patch();
+
+document.addEventListener('DOMContentLoaded', () => {
+    // This is for when the view is loaded as a modal and data is passed
+    if (typeof directivesText !== 'undefined' && directivesText) {
+        directivesEl.value = directivesText;
+    }
+});
+
+function changeFontSize(direction) {
+  const root = document.documentElement;
+  let currentSize = parseFloat(getComputedStyle(root).getPropertyValue('--font-size-base'));
+  currentSize += direction * 1;
+  root.style.setProperty('--font-size-base', `${Math.max(12, currentSize)}px`);
+}
+
+function openInModal() {
+  google.script.run.showAsModal(directivesEl.value);
+}
+
+function saveDirectives() {
+    const text = directivesEl.value.trim();
+    if(!text) {
+        showError("Nothing to save.");
+        return;
+    }
+    const name = prompt("Enter a name for this set of directives:");
+    if(name) {
+        alert(`Directives set "${name}" has been saved (simulation).`);
+    }
+}
+
+function parseDirectives() {
+  try {
+    const text = directivesEl.value.trim();
+    if (!text) { 
+      showError("The directives field is empty."); 
+      return null; 
+    }
+    const data = JSON.parse(text);
+    if (!Array.isArray(data) || !data.every(item => 'fragment' in item && 'replaceWith' in item)) {
+      showError("Invalid JSON format. Must be an array of {'fragment': '...', 'replaceWith': '...'}."); 
+      return null;
+    }
+    return data;
+  } catch (e) {
+    showError("Invalid JSON. Error: " + e.message); 
+    return null;
+  }
+}
+
+function findChanges() {
+  const directives = parseDirectives();
+  if (!directives) return;
+
+  setLoadingState(true, "Searching for matches...");
+  google.script.run
+    .withSuccessHandler(suggestions => {
+      renderResults(suggestions);
+      setTimeout(() => checkAndShowLogsIfNeeded(), 500);
+    })
+    .withFailureHandler(error => {
+      showError(error);
+      if (document.getElementById('logs-container').style.display === 'none') {
+        toggleLogs();
+      }
+    })
+    .generatePreview(directives, { aiThreshold: 0.4 });
+}
+
+function renderResults(suggestions) {
+  suggestionsCache = suggestions || [];
+  resultsContainer.innerHTML = '';
+  if (suggestionsCache.length === 0) {
+    setLoadingState(false, "No matches found."); 
+    return;
+  }
+  
+  const fixerStats = suggestionsCache.length > 0 ? suggestionsCache[0].fixerStats : null;
+  updateStats(suggestionsCache, fixerStats);
+  statsAndFiltersEl.style.display = 'flex';
+  setLoadingState(false, `${suggestionsCache.length} suggestions found.`);
+  
+  const realSuggestions = suggestionsCache.filter(s => s.type !== 'INFO');
+  
+  realSuggestions.forEach((s, index) => {
+    const card = document.createElement('div');
+    card.className = 'suggestion-card';
+    card.dataset.type = s.type.toLowerCase();
+    card.dataset.index = index;
+    card.style.animationDelay = `${index * 50}ms`;
+    
+    const smartFragment = createSmartFragment(s.oldText, s.fragment, s.newText, s.type, s.replaceWith);
+    const diff = dmp.diff_main(smartFragment.oldFragment, smartFragment.newFragment);
+    dmp.diff_cleanupSemantic(diff);
+    const diffHtml = dmp.diff_prettyHtml(diff).replace(/&para;/g, '');
+    
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="type ${s.type.toLowerCase()}">${s.type}</span>
+        <span class="info">${s.elementType} #${s.paraIndex}</span>
+      </div>
+      <div class="text-diff">${diffHtml}</div>
+      <div class="card-footer">
+        <div class="card-actions">
+          <button class="card-action-btn" onclick='toggleEditMode(${index})' title="Edit">✏️</button>
+        </div>
+        <label class="custom-checkbox">Apply
+          <input type="checkbox" data-index="${index}" checked>
+          <span class="checkmark"></span>
+        </label>
+      </div>
+      <div class="edit-section" id="edit-section-${index}" style="display: none;">
+        <input type="text" id="edit-replace-${index}" value="${s.replaceWith}" class="edit-input" style="width: 100%; margin-bottom: 5px;">
+        <button onclick='saveEdit(${index})' class="edit-btn">Save</button>
+      </div>`;
+    resultsContainer.appendChild(card);
+    
+    // Add event listeners
+    card.querySelector(`[data-toggle-edit="${index}"]`).addEventListener('click', () => toggleEditMode(index));
+    card.querySelector(`[data-save-edit="${index}"]`).addEventListener('click', () => saveEdit(index));
+  });
+
+  applyBtn.style.display = 'block';
+}
+
+function createSmartFragment(fullOldText, searchFragment, fullNewText, matchType, replaceWith) {
+  const MAX_LENGTH = 200, CONTEXT_CHARS = 50;
+  if (fullOldText.length <= MAX_LENGTH) {
+    return { oldFragment: fullOldText, newFragment: fullNewText, hasMore: false };
+  }
+  const fragmentPos = fullOldText.indexOf(searchFragment);
+  const startPos = (fragmentPos !== -1) ? Math.max(0, fragmentPos - CONTEXT_CHARS) : 0;
+  const endPos = (fragmentPos !== -1) ? Math.min(fullOldText.length, fragmentPos + searchFragment.length + CONTEXT_CHARS) : MAX_LENGTH;
+  
+  const oldFragment = (startPos > 0 ? '...' : '') + fullOldText.substring(startPos, endPos) + (endPos < fullOldText.length ? '...' : '');
+  const newFragment = oldFragment.replace(searchFragment, replaceWith);
+  return { oldFragment, newFragment, hasMore: true };
+}
+
+function updateStats(suggestions, fixerStats) {
+  const counts = suggestions.reduce((acc, s) => { acc[s.type.toLowerCase()] = (acc[s.type.toLowerCase()] || 0) + 1; return acc; }, {});
+  const totalReplacements = suggestions.reduce((acc, s) => acc + (s.replacementCount || 1), 0);
+  let fixerStatsHTML = '';
+  if (fixerStats) {
+    fixerStatsHTML = `<div>🤖 Smart Fixer: <b>${fixerStats.totalFixed}/${fixerStats.totalDirectives}</b> fixed.</div>`;
+  }
+  statsBarEl.innerHTML = `Found: <b>${suggestions.length}</b> suggestions (${totalReplacements} replacements) | Exact: ${counts.exact || 0}, AI: ${counts.ai || 0}`;
+  if(fixerStatsHTML) statsBarEl.innerHTML += fixerStatsHTML;
+}
+
+function filterResults(type) {
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelector(`.filter-btn[onclick='filterResults("${type}")']`).classList.add('active');
+  document.querySelectorAll('.suggestion-card').forEach(card => card.classList.toggle('hidden', type !== 'all' && card.dataset.type !== type));
+}
+
+function applyChanges() {
+  const checkedInputs = document.querySelectorAll('.suggestion-card:not(.hidden) input[type="checkbox"]:checked');
+  const approvedSuggestions = Array.from(checkedInputs).map(input => suggestionsCache[parseInt(input.dataset.index, 10)]);
+
+  if (approvedSuggestions.length === 0) {
+    showError("No changes selected.");
+    return;
+  }
+  
+  setLoadingState(true, "Applying changes...");
+  google.script.run
+    .withSuccessHandler(result => {
+      setLoadingState(false, result);
+      applyBtn.style.display = 'none';
+      document.getElementById('undo-btn').style.display = 'block';
+      resultsContainer.innerHTML = '';
+    })
+    .withFailureHandler(showError)
+    .applySuggestions(approvedSuggestions);
+}
+
+function undoChanges() {
+  setLoadingState(true, 'Reverting last run...');
+  google.script.run
+    .withSuccessHandler(result => {
+      showStatus(result, 4000);
+      setLoadingState(false);
+      document.getElementById('undo-btn').style.display = 'none';
+    })
+    .withFailureHandler(showError)
+    .undoLastRun();
+}
+
+function setLoadingState(isLoading, message = '') {
+  findBtn.disabled = isLoading;
+  applyBtn.disabled = isLoading;
+  statusEl.textContent = message;
+}
+
+function showStatus(message, duration = 3000) {
+  statusEl.textContent = message;
+  setTimeout(() => { statusEl.textContent = ''; }, duration);
+}
+
+function showError(error) {
+  const errorMessage = (error && error.message) ? error.message : String(error);
+  setLoadingState(false);
+  resultsContainer.innerHTML = `<div class="error-msg">${errorMessage}</div>`;
+}
+
+function toggleLogs() {
+  const container = document.getElementById('logs-container');
+  const button = document.getElementById('show-logs-btn');
+  const isHidden = container.style.display === 'none';
+  container.style.display = isHidden ? 'block' : 'none';
+  button.textContent = isHidden ? '📋 Hide Logs' : '📋 Show Logs';
+  if (isHidden) loadLogs();
+}
+
+function loadLogs() {
+  google.script.run
+    .withSuccessHandler(displayLogs)
+    .withFailureHandler(error => document.getElementById('logs-content').innerHTML = `<div class="error-msg">Failed to load logs.</div>`)
+    .getOperationLogs();
+}
+
+function displayLogs(logs) {
+  const logsContent = document.getElementById('logs-content');
+  if (!logs || logs.length === 0) {
+    logsContent.innerHTML = 'No logs available.';
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(summary => {
+      let html = `<div>Summary: ${summary.totalLogs} logs, ${summary.errors} errors, ${summary.warnings} warnings</div>`;
+      html += logs.map(log => {
+        return `<div class="log-${log.level.toLowerCase()}">[${new Date(log.timestamp).toLocaleTimeString()}] ${log.message}</div>`;
+      }).join('');
+      logsContent.innerHTML = html;
+    })
+    .getLogSummary();
+}
+
+function clearLogs() {
+  if (confirm('Clear all operation logs?')) {
+    google.script.run
+      .withSuccessHandler(() => {
+        document.getElementById('logs-content').innerHTML = 'Logs cleared.';
+        showStatus('🗑️ Logs cleared', 2000);
+      })
+      .withFailureHandler(showError)
+      .clearOperationLogs();
+  }
+}
+
+function checkAndShowLogsIfNeeded() {
+  google.script.run.withSuccessHandler(summary => {
+    const button = document.getElementById('show-logs-btn');
+    const shouldShow = summary.errors > 0 || summary.warnings > 3;
+    if (summary.errors > 0) {
+      button.style.background = 'var(--red-color)';
+      button.innerHTML = `📋 Show Logs (${summary.errors} errors)`;
+    } else if (summary.warnings > 0) {
+      button.style.background = 'var(--orange-color)';
+      button.innerHTML = `📋 Show Logs (${summary.warnings} warnings)`;
+    }
+    if (shouldShow && document.getElementById('logs-container').style.display === 'none') {
+      toggleLogs();
+    }
+  }).getLogSummary();
+}
+
+function toggleEditMode(index) {
+  const editSection = document.getElementById(`edit-section-${index}`);
+  editSection.style.display = editSection.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveEdit(index) {
+  const newReplace = document.getElementById(`edit-replace-${index}`).value;
+  suggestionsCache[index].replaceWith = newReplace;
+  suggestionsCache[index].newText = suggestionsCache[index].oldText.replace(new RegExp(escapeRegexClient(suggestionsCache[index].fragment), 'g'), newReplace);
+  toggleEditMode(index);
+  renderResults(suggestionsCache); // Re-render to update the diff
+}
+
+function escapeRegexClient(text) {
+  return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}

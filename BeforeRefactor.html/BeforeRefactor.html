@@ -31,7 +31,6 @@
       background-color: rgba(13, 26, 27, 0.7); backdrop-filter: blur(var(--backdrop-blur));
       -webkit-backdrop-filter: blur(var(--backdrop-blur));
       padding: 1rem; display: flex; flex-direction: column; height: 100%;
-      overflow-y: auto; /* allow full scrolling when results exceed viewport */
     }
     .header { text-align: center; margin-bottom: 1rem; position: relative; }
     .header h2 { font-size: 1.5rem; font-weight: 700; color: var(--accent-color); animation: glow 4s ease-in-out infinite; }
@@ -49,9 +48,9 @@
     #save-directives-btn:hover { color: var(--accent-color); }
 
     textarea {
-      width: 100%; height: 150px; background: var(--panel-color); color: var(--text-color);
+      width: 100%; height: 120px; background: var(--panel-color); color: var(--text-color);
       border: 1px solid var(--muted-color); border-radius: var(--border-radius);
-      padding: 0.8rem; margin-bottom: 1rem; resize: vertical; font-family: 'Fira Code', monospace; font-size: 0.9rem;
+      padding: 0.8rem; margin-bottom: 1rem; resize: vertical; font-family: 'Fira Code', monospace; font-size: 0.8rem;
       transition: all var(--transition-speed);
     }
     textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 10px var(--accent-glow); }
@@ -66,32 +65,19 @@
     
     /* 📊 Улучшение: Статистика и Фильтры */
     #stats-and-filters {
-      display: none; justify-content: space-between; align-items: flex-start;
-      padding: 1rem 0; font-size: 0.9rem; 
-      background: rgba(0,0,0,0.1); border-radius: 8px; margin-bottom: 1rem;
-      border: 1px solid var(--muted-color); padding: 1rem;
+      display: none; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0; font-size: 0.8rem;
     }
-    #stats-bar { 
-      color: var(--text-color); 
-      flex-grow: 1; 
-      margin-right: 1rem; 
-      line-height: 1.4;
-    }
+    #stats-bar { color: var(--muted-color); }
     .filter-btn { background: none; border: 1px solid var(--muted-color); color: var(--muted-color); padding: 4px 8px; border-radius: 12px; cursor: pointer; transition: all var(--transition-speed); }
     .filter-btn:hover, .filter-btn.active { color: var(--accent-color); border-color: var(--accent-color); }
     .filter-btn.active { background: rgba(0, 229, 255, 0.1); }
 
-    #results-container { 
-      flex-grow: 1; 
-      overflow-y: auto; 
-      padding-right: 0.5rem; 
-      min-height: 200px;
-    }
+    #results-container { flex-grow: 1; overflow-y: auto; padding-right: 0.5rem; }
     .suggestion-card {
       background: var(--panel-color); border-left: 4px solid;
-      border-radius: var(--border-radius); padding: 1.2rem; margin-bottom: 1rem;
+      border-radius: var(--border-radius); padding: 1rem; margin-bottom: 1rem;
       animation: fadeInUp 0.5s ease-out forwards; opacity: 0; transition: all var(--transition-speed);
-      min-height: 120px; /* Минимальная высота карточки */
     }
     .suggestion-card.hidden { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; border: 0; overflow: hidden; }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
@@ -102,17 +88,7 @@
     .card-header .info { font-size: 0.8em; color: var(--muted-color); }
     
     /* 🎨 МЯГКИЕ ЦВЕТА для diff - НЕ РЕЖУТ ГЛАЗА */
-    .text-diff { 
-      font-size: 0.95em; 
-      line-height: 1.6; 
-      font-family: 'Spectral', serif; 
-      max-height: 200px; 
-      overflow-y: auto; 
-      padding: 8px; 
-      background: rgba(0,0,0,0.1); 
-      border-radius: 4px; 
-      margin: 8px 0; 
-    }
+    .text-diff { font-size: 0.9em; line-height: 1.5; font-family: 'Spectral', serif; }
     .text-diff del {
       color: #d66584;
       font-weight: 500;
@@ -170,27 +146,6 @@
     .custom-checkbox .checkmark:after { content: ""; position: absolute; display: none; left: 6px; top: 2px; width: 5px; height: 10px; border: solid var(--bg-color); border-width: 0 3px 3px 0; transform: rotate(45deg); }
     .custom-checkbox input:checked ~ .checkmark:after { display: block; }
     .error-msg { color: var(--red-color); text-align: center; padding: 1rem; background: rgba(255, 104, 164, 0.1); border-radius: var(--border-radius); border: 1px solid var(--red-color); }
-
-    /* Улучшаем логи */
-    #logs-container { 
-      display: none; 
-      margin-top: 1rem; 
-      max-height: 400px; /* Увеличиваем высоту для логов */
-      overflow-y: auto; 
-      background: rgba(0,0,0,0.2); 
-      border: 1px solid var(--muted-color); 
-      border-radius: 6px; 
-      padding: 1rem;
-    }
-
-    #logs-content { 
-      font-family: 'Fira Code', monospace; 
-      font-size: 0.85em; 
-      color: var(--text-color); 
-      line-height: 1.5;
-      max-height: 350px;
-      overflow-y: auto;
-    }
   </style>
 </head>
 <body>
@@ -201,22 +156,6 @@
         <button onclick="changeFontSize(-1)" title="Decrease font size">A-</button>
         <button onclick="changeFontSize(1)" title="Increase font size">A+</button>
         <button onclick="openInModal()" title="Expand to modal view">↔️</button>
-        <button onclick="toggleLogs()" title="Show/Hide Logs">📋</button>
-        <button onclick="toggleApiKeySetup()" title="Setup OpenAI API Key">🔑</button>
-      </div>
-    </div>
-    
-    <!-- API Key Setup Section -->
-    <div id="api-key-setup" style="display: none; margin-bottom: 1rem; padding: 1rem; background: rgba(0,229,255,0.1); border-radius: 8px; border: 1px solid var(--accent-color);">
-      <h4 style="margin: 0 0 0.5rem 0; color: var(--accent-color);">🤖 GPT-4o Mini Setup</h4>
-      <input type="password" id="api-key-input" placeholder="Введите OpenAI API ключ (sk-...)" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid var(--muted-color); border-radius: 4px; background: var(--bg-color); color: var(--text-color);">
-      <div style="display: flex; gap: 8px;">
-        <button onclick="saveApiKey()" style="padding: 6px 12px; background: var(--accent-color); color: var(--bg-color); border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">💾 Сохранить</button>
-        <button onclick="testApiKey()" style="padding: 6px 12px; background: var(--green-color); color: var(--bg-color); border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">🧪 Тест</button>
-        <button onclick="clearApiKey()" style="padding: 6px 12px; background: var(--red-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">🗑️ Очистить</button>
-      </div>
-      <div id="api-key-status" style="margin-top: 8px; font-size: 0.9em; color: var(--muted-color);">
-        Статус: <span id="api-key-status-text">Не проверен</span>
       </div>
     </div>
     
@@ -251,13 +190,13 @@
     <!-- Logs Section -->
     <div id="logs-section" style="margin-top: 1rem;">
       <button id="show-logs-btn" onclick="toggleLogs()" style="padding: 8px 16px; background: var(--muted-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em;">📋 Show Operation Logs</button>
-      <div id="logs-container">
+      <div id="logs-container" style="display: none; margin-top: 1rem; max-height: 300px; overflow-y: auto; background: rgba(0,0,0,0.1); border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <h4 style="margin: 0; color: var(--accent-color);">Operation Logs</h4>
-          <button onclick="clearLogs()" style="padding: 4px 8px; background: var(--red-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">🗑️ Clear</button>
+          <button onclick="clearLogs()" style="padding: 4px 8px; background: var(--error-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;">🗑️ Clear</button>
         </div>
-        <div id="logs-content">
-          No logs available. Run an operation to see logs here.
+        <div id="logs-content" style="font-family: monospace; font-size: 0.8em; color: var(--text-color); line-height: 1.4;">
+          No logs available. Run a operation to see logs here.
         </div>
       </div>
     </div>
@@ -272,8 +211,6 @@
     const statsAndFiltersEl = document.getElementById('stats-and-filters');
     const statsBarEl = document.getElementById('stats-bar');
     let suggestionsCache = [];
-    let currentDirectives = [];
-    let missingDirectives = [];
     // Initialize the diff_match_patch library
     const dmp = new diff_match_patch();
 
@@ -357,9 +294,6 @@
         return;
       }
 
-      // Save directives globally for later use (e.g., missing list)
-      currentDirectives = directives;
-
       console.log(`✅ Parsed ${directives.length} directives, starting search...`);
       setLoadingState(true, "Searching for matches in the document...");
       
@@ -421,9 +355,6 @@
         return;
       }
       
-      // Clear loading state immediately when we have results
-      setLoadingState(false);
-      
       // Log statistics about suggestion types
       const exactCount = suggestions.filter(s => s.type === 'EXACT').length;
       const aiCount = suggestions.filter(s => s.type === 'AI').length;
@@ -447,14 +378,12 @@
         });
       });
       
-      // Calculate missing directives list
-      const matchedFragments = new Set(suggestions.map(s => s.fragment));
-      missingDirectives = currentDirectives.filter(d => !matchedFragments.has(d.fragment));
-      
       // Render stats
       updateStats(suggestions, fixerStats);
       statsAndFiltersEl.style.display = 'flex';
 
+      setLoadingState(false, `${suggestions.length} suggestions found.`);
+      
       // Filter out INFO type suggestions (they're for stats only)
       const realSuggestions = suggestions.filter(s => s.type !== 'INFO');
       
@@ -588,51 +517,27 @@
             return acc + (s.replacementCount || 1);
         }, 0);
         
-        // Calculate success rate based on total directives processed
-        const totalDirectives = fixerStats ? fixerStats.totalDirectives : suggestions.length;
-        const successRate = Math.round((suggestions.length / totalDirectives) * 100);
-        
         let fixerStatsHTML = '';
         if (fixerStats) {
           const fixerColor = fixerStats.successRate > 80 ? 'var(--green-color)' : 
                             fixerStats.successRate > 50 ? 'var(--accent-color)' : 
                             'var(--orange-color)';
           fixerStatsHTML = `
-            <span style="color:${fixerColor}; font-size:0.85em; white-space:nowrap;">🤖 Fixer ${fixerStats.totalFixed}/${fixerStats.totalDirectives} (${fixerStats.successRate}% )</span>`;
+            <div style="margin-top: 8px; padding: 6px 10px; background: rgba(0,229,255,0.1); border-radius: 4px; border: 1px solid var(--accent-color);">
+              <span style="color: var(--text-color); font-size: 0.9em;">
+                🤖 <strong>Smart Fragment Fixer:</strong> 
+                <span style="color: ${fixerColor}; font-weight: bold;">${fixerStats.totalFixed}/${fixerStats.totalDirectives}</span> 
+                исправлено (${fixerStats.successRate}%)
+              </span>
+            </div>
+          `;
         }
         
-        // Color code based on success rate
-        const successColor = successRate >= 80 ? 'var(--green-color)' : 
-                            successRate >= 50 ? 'var(--accent-color)' : 
-                            'var(--orange-color)';
-        
         statsBarEl.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>
-                  Найдено: <b style="color: ${successColor}">${suggestions.length}/${totalDirectives}</b> 
-                  (<span style="color: ${successColor}; font-weight: bold;">${successRate}%</span>)
-                </span>
-                <span>
-                  Замен: <b style="color: var(--accent-color)">${totalReplacements}</b>${fixerStatsHTML}
-                </span>
-              </div>
-              <div style="display: flex; gap: 16px; font-size: 0.9em; flex-wrap: wrap;">
-                <span>
-                  <span style="color: var(--green-color); font-weight: bold;">✓ ${counts.exact || 0}</span> точных
-                </span>
-                <span>
-                  <span style="color: var(--accent-color); font-weight: bold;">🤖 ${counts.ai || 0}</span> AI
-                </span>
-                <span>
-                  <span style="color: var(--orange-color); font-weight: bold; cursor: pointer;" onclick="showMissing()">❌ ${missingDirectives.length}</span> не найдено
-                </span>
-                ${missingDirectives.length > 0 && (counts.ai || 0) === 0 ? 
-                  '<span style="color: var(--muted-color); font-size: 0.8em; cursor: pointer;" onclick="toggleApiKeySetup()" title="Настроить AI для поиска недостающих фрагментов">🔑 AI недоступен</span>' : 
-                  ''
-                }
-              </div>
-            </div>
+            Found: <b>${suggestions.length}</b> suggestions, <b>${totalReplacements}</b> replacements
+            ( <span style="color: var(--green-color)">${counts.exact || 0}</span> Exact | 
+            <span style="color: var(--accent-color)">${counts.ai || 0}</span> AI )
+            ${fixerStatsHTML}
         `;
     }
 
@@ -950,15 +855,11 @@
     }
 
     function loadLogs() {
-      console.log('📋 Loading operation logs...');
       google.script.run
-        .withSuccessHandler(logs => {
-          console.log('📋 Logs loaded successfully:', logs?.length || 0, 'entries');
-          displayLogs(logs);
-        })
+        .withSuccessHandler(displayLogs)
         .withFailureHandler(error => {
           console.error('Failed to load logs:', error);
-          document.getElementById('logs-content').innerHTML = `<div style="color: var(--red-color); text-align: center; padding: 1rem;">Failed to load logs: ${error.message || error}</div>`;
+          document.getElementById('logs-content').innerHTML = `<div style="color: var(--error-color);">Failed to load logs: ${error.message || error}</div>`;
         })
         .getOperationLogs();
     }
@@ -967,55 +868,45 @@
       const logsContent = document.getElementById('logs-content');
       
       if (!logs || logs.length === 0) {
-        logsContent.innerHTML = '<div style="color: var(--muted-color); text-align: center; padding: 2rem;">No logs available. Run an operation to see logs here.</div>';
+        logsContent.innerHTML = 'No logs available. Run an operation to see logs here.';
         return;
       }
-
-      console.log('📊 Displaying logs:', logs);
 
       // Get log summary
       google.script.run
         .withSuccessHandler(summary => {
-          let html = `<div style="margin-bottom: 1rem; padding: 12px; background: rgba(0,229,255,0.1); border-radius: 4px; border: 1px solid var(--accent-color);">
+          let html = `<div style="margin-bottom: 1rem; padding: 8px; background: rgba(0,229,255,0.1); border-radius: 4px;">
             <strong>📊 Summary:</strong> ${summary.totalLogs} logs, 
-            <span style="color: var(--red-color);">${summary.errors} errors</span>, 
-            <span style="color: var(--orange-color);">${summary.warnings} warnings</span>
+            <span style="color: var(--error-color);">${summary.errors} errors</span>, 
+            <span style="color: orange;">${summary.warnings} warnings</span>
           </div>`;
 
-          // Display logs with better formatting
+          // Display logs
           html += logs.map(log => {
             const time = new Date(log.timestamp).toLocaleTimeString();
             let color = 'var(--text-color)';
             let icon = 'ℹ️';
-            let bgColor = 'transparent';
             
             switch (log.level) {
               case 'ERROR':
-                color = 'var(--red-color)';
+                color = 'var(--error-color)';
                 icon = '💥';
-                bgColor = 'rgba(255, 104, 164, 0.1)';
                 break;
               case 'WARN':
-                color = 'var(--orange-color)';
+                color = 'orange';
                 icon = '⚠️';
-                bgColor = 'rgba(255, 159, 67, 0.1)';
                 break;
               case 'INFO':
                 if (log.message.includes('✅')) icon = '✅';
                 else if (log.message.includes('🎯')) icon = '🎯';
                 else if (log.message.includes('🤖')) icon = '🤖';
-                else if (log.message.includes('🚀')) icon = '🚀';
                 break;
             }
             
-            return `<div style="margin-bottom: 6px; padding: 8px; background: ${bgColor}; border-radius: 4px; border-left: 3px solid ${color};">
-              <div style="color: ${color}; font-weight: 500;">
-                <span style="color: var(--muted-color); font-size: 0.8em;">[${time}]</span> 
-                ${icon} ${log.message}
-              </div>
-              ${log.data ? `<div style="margin-left: 20px; margin-top: 4px; color: var(--muted-color); font-size: 0.75em; max-height: 100px; overflow-y: auto;">
-                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${JSON.stringify(log.data, null, 2).substring(0, 300)}${JSON.stringify(log.data, null, 2).length > 300 ? '...' : ''}</pre>
-              </div>` : ''}
+            return `<div style="margin-bottom: 4px; color: ${color};">
+              <span style="color: var(--muted-color);">[${time}]</span> 
+              ${icon} ${log.message}
+              ${log.data ? `<br><span style="margin-left: 20px; color: var(--muted-color); font-size: 0.7em;">${JSON.stringify(log.data, null, 2).substring(0, 200)}${JSON.stringify(log.data, null, 2).length > 200 ? '...' : ''}</span>` : ''}
             </div>`;
           }).join('');
 
@@ -1023,39 +914,7 @@
           // Scroll to bottom
           logsContent.scrollTop = logsContent.scrollHeight;
         })
-        .withFailureHandler(err => {
-          console.error('Failed to get log summary:', err);
-          // Fallback - show logs without summary
-          let html = logs.map(log => {
-            const time = new Date(log.timestamp).toLocaleTimeString();
-            let color = 'var(--text-color)';
-            let icon = 'ℹ️';
-            
-            switch (log.level) {
-              case 'ERROR':
-                color = 'var(--red-color)';
-                icon = '💥';
-                break;
-              case 'WARN':
-                color = 'var(--orange-color)';
-                icon = '⚠️';
-                break;
-              case 'INFO':
-                if (log.message.includes('✅')) icon = '✅';
-                else if (log.message.includes('🎯')) icon = '🎯';
-                else if (log.message.includes('🤖')) icon = '🤖';
-                break;
-            }
-            
-            return `<div style="margin-bottom: 4px; color: ${color}; padding: 4px;">
-              <span style="color: var(--muted-color);">[${time}]</span> 
-              ${icon} ${log.message}
-            </div>`;
-          }).join('');
-          
-          logsContent.innerHTML = html;
-          logsContent.scrollTop = logsContent.scrollHeight;
-        })
+        .withFailureHandler(err => console.error('Failed to get log summary:', err))
         .getLogSummary();
     }
 
@@ -1072,128 +931,6 @@
           })
           .clearOperationLogs();
       }
-    }
-    
-    // API Key Management Functions
-    function toggleApiKeySetup() {
-      const container = document.getElementById('api-key-setup');
-      if (container.style.display === 'none') {
-        container.style.display = 'block';
-        // Check current API key status
-        checkApiKeyStatus();
-      } else {
-        container.style.display = 'none';
-      }
-    }
-    
-    function saveApiKey() {
-      const apiKeyInput = document.getElementById('api-key-input');
-      const apiKey = apiKeyInput.value.trim();
-      
-      if (!apiKey) {
-        showError('Пожалуйста, введите API ключ');
-        return;
-      }
-      
-      if (!apiKey.startsWith('sk-')) {
-        showError('API ключ должен начинаться с sk-');
-        return;
-      }
-      
-      setApiKeyStatus('⏳ Сохраняю...', 'var(--accent-color)');
-      
-      google.script.run
-        .withSuccessHandler(success => {
-          if (success) {
-            setApiKeyStatus('✅ Сохранен', 'var(--green-color)');
-            showStatus('🔑 API ключ успешно сохранен', 3000);
-            apiKeyInput.value = '';
-          } else {
-            setApiKeyStatus('❌ Ошибка сохранения', 'var(--red-color)');
-            showError('Не удалось сохранить API ключ');
-          }
-        })
-        .withFailureHandler(error => {
-          setApiKeyStatus('❌ Ошибка сохранения', 'var(--red-color)');
-          showError('Ошибка при сохранении API ключа: ' + (error.message || error));
-        })
-        .setOpenAIKey(apiKey);
-    }
-    
-    function testApiKey() {
-      setApiKeyStatus('⏳ Тестирую...', 'var(--accent-color)');
-      
-      google.script.run
-        .withSuccessHandler(success => {
-          if (success) {
-            setApiKeyStatus('✅ Работает', 'var(--green-color)');
-            showStatus('🤖 GPT-4o Mini подключен и работает!', 3000);
-          } else {
-            setApiKeyStatus('❌ Не работает', 'var(--red-color)');
-            showError('API ключ не работает. Проверьте ключ и интернет-соединение.');
-          }
-        })
-        .withFailureHandler(error => {
-          setApiKeyStatus('❌ Ошибка теста', 'var(--red-color)');
-          showError('Ошибка при тестировании API ключа: ' + (error.message || error));
-        })
-        .testOpenAIKey();
-    }
-    
-    function clearApiKey() {
-      if (confirm('Вы уверены, что хотите удалить API ключ?')) {
-        setApiKeyStatus('⏳ Удаляю...', 'var(--accent-color)');
-        
-        google.script.run
-          .withSuccessHandler(success => {
-            if (success) {
-              setApiKeyStatus('❌ Удален', 'var(--muted-color)');
-              showStatus('🗑️ API ключ удален', 3000);
-            } else {
-              setApiKeyStatus('❌ Ошибка удаления', 'var(--red-color)');
-              showError('Не удалось удалить API ключ');
-            }
-          })
-          .withFailureHandler(error => {
-            setApiKeyStatus('❌ Ошибка удаления', 'var(--red-color)');
-            showError('Ошибка при удалении API ключа: ' + (error.message || error));
-          })
-          .clearOpenAIKey();
-      }
-    }
-    
-    function checkApiKeyStatus() {
-      setApiKeyStatus('⏳ Проверяю...', 'var(--accent-color)');
-      
-      google.script.run
-        .withSuccessHandler(status => {
-          if (status.hasKey) {
-            setApiKeyStatus('✅ Установлен', 'var(--green-color)');
-            if (status.migrated) {
-              showStatus('🔄 API ключ автоматически найден в Script Properties и мигрирован для совместимости', 5000);
-            }
-          } else {
-            setApiKeyStatus('❌ Не установлен', 'var(--muted-color)');
-          }
-        })
-        .withFailureHandler(error => {
-          setApiKeyStatus('❌ Ошибка проверки', 'var(--red-color)');
-          console.error('API key check failed:', error);
-        })
-        .getApiKeyStatus();
-    }
-    
-    // Автоматическая проверка API ключа при загрузке страницы
-    window.addEventListener('DOMContentLoaded', function() {
-      console.log('Page loaded, checking API key status...');
-      // Небольшая задержка для инициализации Google Apps Script
-      setTimeout(checkApiKeyStatus, 1000);
-    });
-    
-    function setApiKeyStatus(text, color) {
-      const statusElement = document.getElementById('api-key-status-text');
-      statusElement.textContent = text;
-      statusElement.style.color = color;
     }
 
     function checkAndShowLogsIfNeeded() {
@@ -1255,48 +992,6 @@
           }
         })
         .getLogSummary();
-    }
-
-    /**
-     * Показывает список ненайденных директив в модальном окне.
-     */
-    function showMissing() {
-      if (!missingDirectives || missingDirectives.length === 0) {
-        showStatus('Все директивы найдены!', 2000);
-        return;
-      }
-      
-      const modal = document.createElement('div');
-      modal.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1000;
-        background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-      `;
-      
-      const content = document.createElement('div');
-      content.style.cssText = `
-        background: var(--bg-color); color: var(--text-color); padding: 2rem; border-radius: 12px;
-        max-width: 60vw; max-height: 80vh; overflow-y: auto; position: relative;
-        border: 1px solid var(--accent-color); box-shadow: 0 10px 30px rgba(0,229,255,0.3);
-      `;
-      
-      content.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-          <h3 style="color:var(--accent-color);margin:0;">Ненайденные директивы (${missingDirectives.length})</h3>
-          <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-color);font-size:1.5rem;cursor:pointer;padding:0.5rem;">×</button>
-        </div>
-        <ul style="list-style-type: none; padding: 0; margin: 0;">
-          ${missingDirectives.map((d, i) => `<li style="margin-bottom: 8px; border-bottom: 1px dashed var(--muted-color); padding-bottom: 4px;"><span style="color: var(--orange-color); font-weight: bold;">#${i+1}:</span> ${d.fragment}</li>`).join('')}
-        </ul>
-      `;
-      
-      modal.className = 'modal-overlay';
-      modal.appendChild(content);
-      document.body.appendChild(modal);
-      
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.remove();
-      });
     }
 
   </script>

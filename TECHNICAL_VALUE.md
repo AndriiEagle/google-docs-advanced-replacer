@@ -6,10 +6,9 @@ Advanced Replacer is an automation tool for Google Docs that enables mass text m
 
 ## Technical Capabilities
 
-### Search and Replace Algorithms
-- **EXACT**: Precise search with whitespace normalization
-- **FUZZY**: Similarity-based search using Levenshtein distance algorithm
-- **AI**: Semantic search through OpenAI API
+  ### Search and Replace Algorithms
+  - **EXACT**: Precise search with whitespace normalization
+  - **AI**: Semantic matching using OpenAI GPT-4o-mini with advanced context understanding
 
 ### Supported Document Elements
 - Paragraphs and headings
